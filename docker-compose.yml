@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: adminclientes
+      RABBITMQ_DEFAULT_PASS: adminclientes123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - sps-service
+      - saludpay-service
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  sns-mock:
+    build: ./sns-mock
+    container_name: sns-mock
+    ports:
+      - "8081:8081"
+
+  sps-lb:
+    image: nginx:alpine
+    container_name: sps-lb
+    ports:
+      - "8080:80"
+    volumes:
+      - ./sps-lb/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - sps-service
+
+  sps-service:
+    build: ./sps-service
+    # Sin container_name para permitir: docker-compose up --scale sps-service=2
+    ports:
+      - "8090:8080"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+      SNS_BASE_URL: http://sns-mock:8081
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      sns-mock:
+        condition: service_started
+      mailhog:
+        condition: service_started
+
+  shc-service:
+    build: ./shc-service
+    container_name: shc-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  sam-service:
+    build: ./sam-service
+    container_name: sam-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  saludpay-service:
+    build: ./saludpay-service
+    container_name: saludpay-service
+    ports:
+      - "8082:8082"
+    environment:
+      RABBITMQ__HOST: rabbitmq
+      RABBITMQ__PORT: "5672"
+      RABBITMQ__USERNAME: adminclientes
+      RABBITMQ__PASSWORD: adminclientes123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

@@ -1,0 +1,45 @@
+# ============================================================
+# M2 — 10.43.100.192  |  SPS instancia 1 + Load Balancer + Frontend
+# Servicios: sps-service (inst 1), sps-lb (nginx), frontend
+# Prerequisito: M1 (RabbitMQ) ya debe estar corriendo
+# ============================================================
+services:
+
+  sps-service:
+    build: ./sps-service
+    container_name: sps-service-m2
+    restart: unless-stopped
+    ports:
+      - "8087:8080"   # Puerto 8087: accedido por sps-lb desde fuera del contenedor
+                      # H2 console: http://10.43.100.192:8087/h2-console
+    environment:
+      SPRING_RABBITMQ_HOST: 10.43.99.197      # M1
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+      SNS_BASE_URL: http://10.43.99.197:8081  # M1
+      SPRING_MAIL_HOST: 10.43.99.197          # M1
+      SPRING_MAIL_PORT: 1025
+
+  sps-lb:
+    image: nginx:alpine
+    container_name: sps-lb
+    restart: unless-stopped
+    ports:
+      - "8080:80"   # Load balancer público: http://10.43.100.192:8080
+    volumes:
+      - ./sps-lb/nginx.distributed.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - sps-service
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"     # Aplicación web: http://10.43.100.192
+    volumes:
+      # Sobreescribe el nginx.conf de la imagen con la versión distribuida
+      - ./frontend/nginx.distributed.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - sps-lb

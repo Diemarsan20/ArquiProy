@@ -1,0 +1,40 @@
+# ============================================================
+# M4 — 10.43.99.242  |  SHC Service + SAM Service
+# Servicios: shc-service, sam-service
+# Prerequisito: M1 (RabbitMQ) ya debe estar corriendo
+# ============================================================
+services:
+
+  shc-service:
+    build: ./shc-service
+    container_name: shc-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"   # API SHC: http://10.43.99.242:8083
+                      # H2 console: http://10.43.99.242:8083/h2-console
+    environment:
+      SPRING_RABBITMQ_HOST: 10.43.99.197      # M1
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+    volumes:
+      - shc_data:/app/data   # Persiste la BD H2 de historias clínicas
+
+  sam-service:
+    build: ./sam-service
+    container_name: sam-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"   # API SAM: http://10.43.99.242:8084
+                      # H2 console: http://10.43.99.242:8084/h2-console
+    environment:
+      SPRING_RABBITMQ_HOST: 10.43.99.197      # M1
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+    volumes:
+      - sam_data:/app/data   # Persiste la BD H2 de agenda médica
+
+volumes:
+  shc_data:
+  sam_data:

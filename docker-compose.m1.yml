@@ -1,0 +1,37 @@
+# ============================================================
+# M1 — 10.43.99.197  |  Infraestructura compartida
+# Servicios: RabbitMQ, Mailhog, SNS Mock
+# Orden de inicio: esta máquina PRIMERO
+# ============================================================
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"       # AMQP — accedido por M2, M3, M4
+      - "15672:15672"     # Management UI: http://10.43.99.197:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: adminclientes
+      RABBITMQ_DEFAULT_PASS: adminclientes123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP — accedido por sps-service en M2 y M3
+      - "8025:8025"   # Web UI correos: http://10.43.99.197:8025
+
+  sns-mock:
+    build: ./sns-mock
+    container_name: sns-mock
+    restart: unless-stopped
+    ports:
+      - "8081:8081"   # REST — accedido por sps-service en M2 y M3
