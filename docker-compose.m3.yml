@@ -1,11 +1,27 @@
 # ============================================================
-# M3 — 10.43.100.76  |  SaludPay
-# Servicios: saludpay-service
-# Nota: sps-service se eliminó de M3 para evitar split-brain con H2 en memoria.
-#       Solo M2 corre sps-service. Para escalar SPS se requiere BD compartida (ej. PostgreSQL).
+# M3 — 10.43.100.76  |  SPS instancia 2 + SaludPay
+# Servicios: sps-service (inst 2), saludpay-service
+# NOTA: Con H2 en memoria, no mezclar tráfico real entre M2 y M3 al mismo tiempo.
+#       Para demo del LB: activar ambas instancias. Para flujo completo: usar solo M2.
 # Prerequisito: M1 (RabbitMQ) ya debe estar corriendo
 # ============================================================
 services:
+
+  sps-service:
+    build: ./sps-service
+    container_name: sps-service-m3
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # Accedido por sps-lb en M2 como upstream
+                      # H2 console: http://10.43.100.76:8080/h2-console
+    environment:
+      SPRING_RABBITMQ_HOST: 10.43.99.197      # M1
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: adminclientes
+      SPRING_RABBITMQ_PASSWORD: adminclientes123
+      SNS_BASE_URL: http://10.43.99.197:8081  # M1
+      SPRING_MAIL_HOST: 10.43.99.197          # M1
+      SPRING_MAIL_PORT: 1025
 
   saludpay-service:
     build: ./saludpay-service
